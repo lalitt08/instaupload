@@ -1,0 +1,13 @@
+# Secrets & session
+.env
+ig_session.json
+
+# Virtual environment
+venv/
+
+# Downloaded reels
+downloads/
+
+# Python
+__pycache__/
+*.pyc

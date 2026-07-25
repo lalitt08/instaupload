@@ -1,0 +1,6 @@
+venv/
+downloads/
+ig_session.json
+__pycache__/
+*.pyc
+.git/

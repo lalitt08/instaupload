@@ -1,0 +1,14 @@
+services:
+  reel-bot:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persist the Instagram login session across restarts.
+      - ig-session:/data
+      # Edit caption.txt on the host and it applies without a rebuild.
+      - ./caption.txt:/app/caption.txt:ro
+
+volumes:
+  ig-session:

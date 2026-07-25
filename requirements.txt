@@ -1,0 +1,9 @@
+# Minimal deps. No moviepy / numpy — the reel thumbnail is made with ffmpeg
+# directly (see instagram.py), and video metadata uses instagrapi's built-in
+# MP4 parser. imageio-ffmpeg just provides an ffmpeg binary on desktop; on a
+# phone/Linux the system ffmpeg is used instead.
+instagrapi==2.18.9
+imageio-ffmpeg==0.6.0
+python-telegram-bot==21.6
+python-dotenv==1.0.1
+anthropic==0.69.0

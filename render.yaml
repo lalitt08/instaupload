@@ -1,0 +1,33 @@
+# Render Blueprint — deploy the reel bot as a Docker Background Worker.
+#
+# Why a Background Worker (not a Web Service): the bot long-polls Telegram and
+# serves no HTTP, so it doesn't need (and shouldn't use) a web port. Background
+# Workers are a PAID plan on Render — there is no free tier for them.
+#
+# Set the secret env vars in the Render dashboard (they're marked sync:false):
+#   BOT_TOKEN, IG_USERNAME, IG_PASSWORD, ALLOWED_TELEGRAM_IDS, IG_SESSION_B64
+#
+# IG_SESSION_B64 is the important one: create it at home with
+# `python make_session_b64.py` and paste the output here, so Render reuses your
+# trusted home session instead of doing a fresh (blockable) datacenter login.
+services:
+  - type: worker
+    name: reel-bot
+    runtime: docker
+    plan: starter          # Background Workers have no free plan (~$7/mo)
+    dockerfilePath: ./Dockerfile
+    autoDeploy: false
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: IG_USERNAME
+        sync: false
+      - key: IG_PASSWORD
+        sync: false
+      - key: ALLOWED_TELEGRAM_IDS
+        sync: false
+      - key: IG_SESSION_B64
+        sync: false
+      # Session is re-seeded from IG_SESSION_B64 each boot, so no disk needed.
+      - key: IG_SESSION_FILE
+        value: /app/ig_session.json
