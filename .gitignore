@@ -1,4 +1,4 @@
-# Secrets & session
+# Secrets & session (never commit real credentials — use .env.example instead)
 .env
 ig_session.json
 
