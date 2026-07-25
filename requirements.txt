@@ -6,4 +6,11 @@ instagrapi==2.18.9
 imageio-ffmpeg==0.6.0
 python-telegram-bot==21.6
 python-dotenv==1.0.1
-anthropic==0.69.0
+
+# anthropic (AI captions) is OMITTED on purpose: caption.txt provides a fixed
+# caption that always wins, so anthropic is never actually used, and it drags
+# in `jiter` (a Rust package with no prebuilt Termux/Android wheel — fails to
+# build on-device with "Text file busy" errors). caption.py already handles
+# anthropic being missing (falls back to caption.txt / original caption).
+# To re-enable AI captions on a desktop/server install:
+#   pip install anthropic==0.69.0
