@@ -70,10 +70,10 @@ def _process_reel(url: str) -> str:
     Runs off the event loop (instagrapi is synchronous). Returns the new
     reel URL.
     """
-    video_path, original_caption = instagram.download_reel(url)
+    video_path, original_caption, track = instagram.download_reel(url)
     try:
         new_caption = caption.generate_caption(original_caption)
-        new_url = instagram.upload_reel(video_path, new_caption)
+        new_url = instagram.upload_reel(video_path, new_caption, track=track)
         return new_url
     finally:
         # Always clean up the downloaded file.

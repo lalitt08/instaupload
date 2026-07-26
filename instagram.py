@@ -10,6 +10,7 @@ from pathlib import Path
 
 from instagrapi import Client
 from instagrapi.exceptions import LoginRequired
+from instagrapi.types import Track
 
 import config
 
@@ -110,24 +111,51 @@ def get_client() -> Client:
     return _client
 
 
-def download_reel(url: str) -> tuple[Path, str]:
+def _find_original_track(cl: Client, info) -> Track | None:
+    """Look up the exact licensed-music Track the source reel used, so the
+    repost can be attributed to the same official audio (not just re-upload
+    the same audio bytes). Returns None for reels using original/personal
+    audio (no catalogued track exists to attribute to) or if lookup fails."""
+    clips_metadata = getattr(info, "clips_metadata", None)
+    if not clips_metadata:
+        return None
+    music_canonical_id = getattr(clips_metadata, "music_canonical_id", None)
+    if not music_canonical_id:
+        return None  # original/personal audio, or no music attached
+
+    try:
+        track = cl.track_info_by_canonical_id(music_canonical_id)
+        log.info("Found original audio track: %s", track.title)
+        return track
+    except Exception as e:  # noqa: BLE001 - attribution is best-effort
+        log.warning("Could not look up original audio track: %s", e)
+        return None
+
+
+def download_reel(url: str) -> tuple[Path, str, Track | None]:
     """Download a reel by its URL.
 
-    Returns (path_to_mp4, original_caption).
+    Returns (path_to_mp4, original_caption, original_track_or_None).
     """
     cl = get_client()
     media_pk = cl.media_pk_from_url(url)
     info = cl.media_info(media_pk)
     original_caption = info.caption_text or ""
+    track = _find_original_track(cl, info)
 
     log.info("Downloading reel %s ...", media_pk)
     path = cl.clip_download(media_pk, folder=config.DOWNLOAD_DIR)
     log.info("Downloaded to %s", path)
-    return Path(path), original_caption
+    return Path(path), original_caption, track
 
 
-def upload_reel(path: Path, caption: str) -> str:
-    """Upload an mp4 as a reel/clip. Returns the new media's URL/code."""
+def upload_reel(path: Path, caption: str, track: Track | None = None) -> str:
+    """Upload an mp4 as a reel/clip. Returns the new media's URL/code.
+
+    If `track` is given, attributes the post to that same official audio
+    track (metadata only — the audio itself is already in the video file).
+    Falls back to a plain upload if that fails for any reason.
+    """
     cl = get_client()
     log.info("Uploading reel from %s ...", path)
 
@@ -135,7 +163,21 @@ def upload_reel(path: Path, caption: str) -> str:
     thumb = _make_thumbnail(path)
     kwargs = {"thumbnail": thumb} if thumb else {}
     try:
-        media = cl.clip_upload(path, caption=caption, **kwargs)
+        if track is not None:
+            try:
+                media = cl.clip_upload_with_music(
+                    path, caption=caption, track=track, **kwargs
+                )
+                log.info("Uploaded with original audio attribution.")
+            except Exception as e:  # noqa: BLE001 - never let this block the post
+                log.warning(
+                    "Could not attribute original audio (%s); "
+                    "uploading without it.",
+                    e,
+                )
+                media = cl.clip_upload(path, caption=caption, **kwargs)
+        else:
+            media = cl.clip_upload(path, caption=caption, **kwargs)
     finally:
         if thumb:
             thumb.unlink(missing_ok=True)
