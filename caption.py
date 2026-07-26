@@ -30,13 +30,17 @@ def generate_caption(original_caption: str) -> str:
     """Return a caption for the repost.
 
     Priority:
-      1. Fixed caption from caption.txt (used verbatim on every post).
-      2. AI-generated caption (if ANTHROPIC_API_KEY is set).
-      3. The original reel's caption (or a default).
+      1. The original reel's own caption (used verbatim), if it has one.
+      2. Fixed caption from caption.txt, as a fallback when the reel has none.
+      3. AI-generated caption (if ANTHROPIC_API_KEY is set).
+      4. A simple default.
     """
     original_caption = (original_caption or "").strip()
 
-    # 1. Fixed caption file wins.
+    if original_caption:
+        return original_caption
+
+    # Reel had no caption of its own — fall back to the fixed caption file.
     try:
         if config.CAPTION_FILE.exists():
             fixed = config.CAPTION_FILE.read_text(encoding="utf-8").strip()
@@ -46,8 +50,8 @@ def generate_caption(original_caption: str) -> str:
         log.warning("Could not read %s: %s", config.CAPTION_FILE, e)
 
     if not config.ANTHROPIC_API_KEY:
-        # No AI configured — reuse the original, or a default if it's empty.
-        return original_caption or DEFAULT_CAPTION
+        # No AI configured and no caption anywhere — use the default.
+        return DEFAULT_CAPTION
 
     try:
         import anthropic  # lazy import: only needed when a key is set
