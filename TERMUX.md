@@ -10,11 +10,11 @@ login works there. The phone becomes the always-on host — free, no Render.
 Git push works fine on the office network (it's GitHub, not Instagram). I've
 already run `git init` + the first commit for you. You just need to:
 
-1. Create an **empty private repo** at https://github.com/new (e.g. `reel-bot`).
+1. Create an **empty private repo** at https://github.com/new (e.g. `instaupload`).
    Don't add a README/.gitignore — keep it empty.
 2. In the project folder on the laptop, run the two commands GitHub shows you:
    ```bash
-   git remote add origin https://github.com/<your-username>/reel-bot.git
+   git remote add origin https://github.com/<your-username>/instaupload.git
    git push -u origin main
    ```
 
@@ -38,8 +38,8 @@ pkg install -y python git ffmpeg rust clang binutils libjpeg-turbo libpng zlib
 
 ### 3. Get the code
 ```bash
-git clone https://github.com/<your-username>/reel-bot.git
-cd reel-bot
+git clone https://github.com/<your-username>/instaupload.git
+cd instaupload
 ```
 
 ### 4. Create the `.env` file (your secrets — type your real values)
@@ -78,19 +78,49 @@ caption.
 
 ## Part 3 — keep it running 24/7
 
-- In Termux run: `termux-wake-lock` (stops Android sleeping the app).
+Two separate things need to be true: (1) the process survives you closing the
+terminal / switching apps, and (2) Android doesn't kill Termux itself.
+
+### 1. Detach the process from your terminal session
+
+Running `python bot.py` directly ties it to that terminal — closing Termux (or
+the session) kills it. Run it detached instead with `nohup` + `disown`:
+
+```bash
+termux-wake-lock
+nohup python bot.py > bot.log 2>&1 &
+disown
+```
+
+Now you can close the Termux window, switch apps, lock the phone — the bot
+keeps running in the background as long as the Termux **app process** is
+alive (see step 2 below for making sure Android doesn't kill it).
+
+- **Check on it / see logs:** `tail -f bot.log` (Ctrl+C just exits the log
+  view — the bot keeps running).
+- **Check it's running:** `pgrep -f bot.py` (prints a process ID if it's up).
+- **Stop it:** `pkill -f bot.py`.
+- **Restart after a code update:** `pkill -f bot.py`, then run the `nohup`
+  command again.
+
+### 2. Stop Android from killing Termux
+
 - Phone Settings → Apps → Termux → Battery → **Unrestricted** (no battery
   optimization).
-- Keep the phone charged / plugged in. Don't swipe Termux away from recents.
+- Don't **force-stop** Termux or swipe it away with "clear all" in recents —
+  just pressing Home is fine and won't kill it.
+- Keep the phone charged / plugged in when possible.
 
-**Auto-start after reboot (optional):** install **Termux:Boot** from F-Droid,
-then:
+### 3. Auto-start after reboot (optional but recommended)
+
+If the phone restarts, Termux won't auto-launch the bot unless you set this up.
+Install **Termux:Boot** from F-Droid, then:
 ```bash
 mkdir -p ~/.termux/boot
 cat > ~/.termux/boot/start-bot.sh <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 termux-wake-lock
-cd ~/reel-bot && python bot.py
+cd ~/instaupload && nohup python bot.py > bot.log 2>&1 &
 EOF
 chmod +x ~/.termux/boot/start-bot.sh
 ```
