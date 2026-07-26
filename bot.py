@@ -76,9 +76,10 @@ def _process_reel(url: str) -> str:
         new_url = instagram.upload_reel(video_path, new_caption, track=track)
         return new_url
     finally:
-        # Always clean up the downloaded file.
+        # Always clean up the downloaded file so phone storage doesn't fill up.
         try:
             Path(video_path).unlink(missing_ok=True)
+            log.info("Deleted local file %s", video_path)
         except OSError as e:
             log.warning("Could not delete %s: %s", video_path, e)
 

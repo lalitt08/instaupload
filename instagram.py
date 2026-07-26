@@ -111,10 +111,9 @@ def get_client() -> Client:
     return _client
 
 
-def _log_audio_diagnostics(info) -> None:
-    """Temporary diagnostic logging to see exactly what audio metadata a reel
-    carries, so we can tell apart "no music to attribute" from "the field is
-    just somewhere else than expected"."""
+def _audio_summary(info) -> dict:
+    """Pull the audio/music-related fields out of a Media object into a
+    plain dict, for diagnostic logging."""
     clips_metadata = getattr(info, "clips_metadata", None)
     attribution = getattr(info, "clips_music_attribution_info", None)
     diag = {"has_audio": getattr(info, "has_audio", None)}
@@ -151,15 +150,29 @@ def _log_audio_diagnostics(info) -> None:
                 "attribution.audio_id": getattr(attribution, "audio_id", None),
             }
         )
-    log.info("AUDIO DIAGNOSTICS: %s", diag)
+    return diag
 
 
-def _find_original_track(cl: Client, info) -> Track | None:
+def _log_audio_diagnostics(cl: Client, media_pk: int, info) -> None:
+    """Temporary diagnostic logging to see exactly what audio metadata a reel
+    carries, from BOTH the private mobile API (already fetched as `info`) and
+    the public web GraphQL API (a different data source instagrapi also
+    supports) — so we can tell apart "genuinely no music to attribute" from
+    "the private endpoint just doesn't expose it, but the web one does"."""
+    log.info("AUDIO DIAGNOSTICS (private API): %s", _audio_summary(info))
+    try:
+        gql_info = cl.media_info_gql(media_pk)
+        log.info("AUDIO DIAGNOSTICS (public GQL API): %s", _audio_summary(gql_info))
+    except Exception as e:  # noqa: BLE001 - diagnostic only, never block
+        log.info("AUDIO DIAGNOSTICS (public GQL API): lookup failed (%s)", e)
+
+
+def _find_original_track(cl: Client, media_pk: int, info) -> Track | None:
     """Look up the exact licensed-music Track the source reel used, so the
     repost can be attributed to the same official audio (not just re-upload
     the same audio bytes). Returns None for reels using original/personal
     audio (no catalogued track exists to attribute to) or if lookup fails."""
-    _log_audio_diagnostics(info)
+    _log_audio_diagnostics(cl, media_pk, info)
 
     clips_metadata = getattr(info, "clips_metadata", None)
     if not clips_metadata:
@@ -186,7 +199,7 @@ def download_reel(url: str) -> tuple[Path, str, Track | None]:
     media_pk = cl.media_pk_from_url(url)
     info = cl.media_info(media_pk)
     original_caption = info.caption_text or ""
-    track = _find_original_track(cl, info)
+    track = _find_original_track(cl, media_pk, info)
 
     log.info("Downloading reel %s ...", media_pk)
     path = cl.clip_download(media_pk, folder=config.DOWNLOAD_DIR)
