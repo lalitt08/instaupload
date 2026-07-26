@@ -111,43 +111,55 @@ def get_client() -> Client:
     return _client
 
 
+def _get(obj, key, default=None):
+    """Read `key` from `obj` whether it's a dict or an object with that
+    attribute. instagrapi's Media.clips_metadata is typed as
+    Union[ClipsMetadata, dict, None] — pydantic silently falls back to a raw
+    dict whenever Instagram's real payload doesn't satisfy every "required"
+    field on the strict ClipsMetadata model (very common in practice). A
+    plain getattr() on that fallback dict always returns the default, even
+    when the key is genuinely present, because getattr() reads attributes,
+    not dict keys."""
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
 def _audio_summary(info) -> dict:
     """Pull the audio/music-related fields out of a Media object into a
     plain dict, for diagnostic logging."""
-    clips_metadata = getattr(info, "clips_metadata", None)
-    attribution = getattr(info, "clips_music_attribution_info", None)
-    diag = {"has_audio": getattr(info, "has_audio", None)}
+    clips_metadata = _get(info, "clips_metadata")
+    attribution = _get(info, "clips_music_attribution_info")
+    diag = {"has_audio": _get(info, "has_audio")}
     if clips_metadata:
-        original_sound_info = getattr(clips_metadata, "original_sound_info", None)
+        original_sound_info = _get(clips_metadata, "original_sound_info")
         diag.update(
             {
-                "audio_type": getattr(clips_metadata, "audio_type", None),
-                "music_canonical_id": getattr(clips_metadata, "music_canonical_id", None),
-                "music_info": getattr(clips_metadata, "music_info", None),
-                "original_sound_info.audio_asset_id": getattr(
-                    original_sound_info, "audio_asset_id", None
-                )
-                if original_sound_info
-                else None,
-                "original_sound_info.title": getattr(
-                    original_sound_info, "original_audio_title", None
-                )
-                if original_sound_info
-                else None,
+                "audio_type": _get(clips_metadata, "audio_type"),
+                "music_canonical_id": _get(clips_metadata, "music_canonical_id"),
+                "music_info": _get(clips_metadata, "music_info"),
+                "original_sound_info.audio_asset_id": _get(
+                    original_sound_info, "audio_asset_id"
+                ),
+                "original_sound_info.title": _get(
+                    original_sound_info, "original_audio_title"
+                ),
             }
         )
     if attribution:
         diag.update(
             {
-                "attribution.artist_name": getattr(attribution, "artist_name", None),
-                "attribution.song_name": getattr(attribution, "song_name", None),
-                "attribution.uses_original_audio": getattr(
-                    attribution, "uses_original_audio", None
+                "attribution.artist_name": _get(attribution, "artist_name"),
+                "attribution.song_name": _get(attribution, "song_name"),
+                "attribution.uses_original_audio": _get(
+                    attribution, "uses_original_audio"
                 ),
-                "attribution.should_mute_audio": getattr(
-                    attribution, "should_mute_audio", None
+                "attribution.should_mute_audio": _get(
+                    attribution, "should_mute_audio"
                 ),
-                "attribution.audio_id": getattr(attribution, "audio_id", None),
+                "attribution.audio_id": _get(attribution, "audio_id"),
             }
         )
     return diag
@@ -174,10 +186,10 @@ def _find_original_track(cl: Client, media_pk: int, info) -> Track | None:
     audio (no catalogued track exists to attribute to) or if lookup fails."""
     _log_audio_diagnostics(cl, media_pk, info)
 
-    clips_metadata = getattr(info, "clips_metadata", None)
+    clips_metadata = _get(info, "clips_metadata")
     if not clips_metadata:
         return None
-    music_canonical_id = getattr(clips_metadata, "music_canonical_id", None)
+    music_canonical_id = _get(clips_metadata, "music_canonical_id")
     if not music_canonical_id:
         return None  # original/personal audio, or no music attached
 
