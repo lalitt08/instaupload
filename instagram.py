@@ -111,11 +111,56 @@ def get_client() -> Client:
     return _client
 
 
+def _log_audio_diagnostics(info) -> None:
+    """Temporary diagnostic logging to see exactly what audio metadata a reel
+    carries, so we can tell apart "no music to attribute" from "the field is
+    just somewhere else than expected"."""
+    clips_metadata = getattr(info, "clips_metadata", None)
+    attribution = getattr(info, "clips_music_attribution_info", None)
+    diag = {"has_audio": getattr(info, "has_audio", None)}
+    if clips_metadata:
+        original_sound_info = getattr(clips_metadata, "original_sound_info", None)
+        diag.update(
+            {
+                "audio_type": getattr(clips_metadata, "audio_type", None),
+                "music_canonical_id": getattr(clips_metadata, "music_canonical_id", None),
+                "music_info": getattr(clips_metadata, "music_info", None),
+                "original_sound_info.audio_asset_id": getattr(
+                    original_sound_info, "audio_asset_id", None
+                )
+                if original_sound_info
+                else None,
+                "original_sound_info.title": getattr(
+                    original_sound_info, "original_audio_title", None
+                )
+                if original_sound_info
+                else None,
+            }
+        )
+    if attribution:
+        diag.update(
+            {
+                "attribution.artist_name": getattr(attribution, "artist_name", None),
+                "attribution.song_name": getattr(attribution, "song_name", None),
+                "attribution.uses_original_audio": getattr(
+                    attribution, "uses_original_audio", None
+                ),
+                "attribution.should_mute_audio": getattr(
+                    attribution, "should_mute_audio", None
+                ),
+                "attribution.audio_id": getattr(attribution, "audio_id", None),
+            }
+        )
+    log.info("AUDIO DIAGNOSTICS: %s", diag)
+
+
 def _find_original_track(cl: Client, info) -> Track | None:
     """Look up the exact licensed-music Track the source reel used, so the
     repost can be attributed to the same official audio (not just re-upload
     the same audio bytes). Returns None for reels using original/personal
     audio (no catalogued track exists to attribute to) or if lookup fails."""
+    _log_audio_diagnostics(info)
+
     clips_metadata = getattr(info, "clips_metadata", None)
     if not clips_metadata:
         return None
