@@ -120,6 +120,15 @@ def main() -> None:
     instagram.get_client()
     log.info("Instagram login OK.")
 
+    # Python 3.14 removed implicit event-loop creation on the main thread, but
+    # python-telegram-bot 21.6's run_polling() still calls
+    # asyncio.get_event_loop() internally expecting one to exist. Create and
+    # set one ourselves; PTB manages and closes it normally from here.
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
     app = Application.builder().token(config.BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", start))
